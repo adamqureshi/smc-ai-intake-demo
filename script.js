@@ -16,7 +16,7 @@ let step=-1, openDetails=null;
 let data={
   createdAt:new Date().toISOString(),
   source:"sellmycybertruck-ai-intake-demo",
-  vin:"", foundation:"", trim:"", odometer:"", titleStatus:"", payoff:"", bank:"",
+  vin:"", vinDecoded: {},foundation:"", trim:"", odometer:"", titleStatus:"", payoff:"", bank:"",
   zip:"", currentOfferYN:"", currentOffer:"", contact:{ name:"", email:"", mobile:"" },
   truckPhotos:[], appScreenFiles:[], softwareScreenFiles:[],
   truckPhotoUrls:[], appScreenUrls:[], softwareScreenUrls:[]
