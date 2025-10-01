@@ -33,21 +33,28 @@ let data = {
   softwareScreenUrls: []    // Blob URLs after upload
 };
 
+// ----- FLOw: start with VIN, contact later -----
 const steps = [
-  // Contact first (keeps it business-like)
-  { key: "contact.name", prompt: "Your full name", type: "text", placeholder: "Jane Doe" },
-  { key: "contact.email", prompt: "Your email", type: "text", placeholder: "you@example.com", validate: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) },
-  { key: "contact.mobile", prompt: "Your mobile number", type: "text", placeholder: "(555) 123-4567", validate: v => v.replace(/\D/g,'').length >= 10 },
-
-  // Vehicle
-  { key: "vin", prompt: "VIN (17 characters)", type: "text", placeholder: "7G2CEHED8RA004637", validate: v => v && v.replace(/\s/g,"").length >= 11 },
-  { key: "foundation", prompt: "Is it a Foundation Series?", type: "select", options: ["Yes — Foundation", "No — Not Foundation"], map: v => v.startsWith("Yes") ? "Foundation" : "Non-Foundation" },
+  // Vehicle first
+  { key: "vin", prompt: "VIN (17 characters)", type: "text",
+    placeholder: "7G2CEHED8RA004637",
+    validate: v => v && v.replace(/\s/g,"").length >= 11
+  },
+  { key: "foundation", prompt: "Is it a Foundation Series?", type: "select",
+    options: ["Yes — Foundation", "No — Not Foundation"],
+    map: v => v.startsWith("Yes") ? "Foundation" : "Non-Foundation"
+  },
   { key: "trim", prompt: "Which trim?", type: "select", options: ["AWD", "Cyberbeast"] },
   { key: "odometer", prompt: "Current odometer (miles)", type: "number", min: 0 },
   { key: "titleStatus", prompt: "Title on hand or loan?", type: "select", options: ["Title on hand", "Loan"] },
   { key: "payoff", prompt: "Approximate payoff amount today (USD)", type: "number", min: 0, when: () => data.titleStatus === "Loan" },
   { key: "zip", prompt: "ZIP code", type: "text", placeholder: "10001", validate: v => /^\d{5}(-\d{4})?$/.test(v.trim()) },
   { key: "currentOffer", prompt: "Any current valid offers? (optional)", type: "text", placeholder: "Optional", required: false },
+
+  // Contact after the car details
+  { key: "contact.name", prompt: "Your full name", type: "text", placeholder: "Jane Doe" },
+  { key: "contact.email", prompt: "Your email", type: "text", placeholder: "you@example.com", validate: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) },
+  { key: "contact.mobile", prompt: "Your mobile number", type: "text", placeholder: "(555) 123-4567", validate: v => v.replace(/\D/g,'').length >= 10 },
 
   // Required images: app + software screens
   { key: "appScreenFiles", prompt: "Upload APP screen image(s) (local preview; uploaded on Send)", type: "file", accept: "image/*", multiple: true, onAnswer: files => previewLocal(files) },
@@ -56,6 +63,28 @@ const steps = [
   { key: "done", prompt: "All set. Review the summary, then click ‘Send to Email’.", type: "end" }
 ];
 
+// ---------- Greeting + auto-start ----------
+function addSystemGreeting() {
+  // simple inline-styled banner so no CSS change is required
+  const box = document.createElement("div");
+  box.style.border = "1px solid #2a2d31";
+  box.style.background = "#0f1012";
+  box.style.borderRadius = "12px";
+  box.style.padding = "14px";
+  box.style.marginBottom = "10px";
+  box.innerHTML = `<div style="font-weight:600;">Hello! 👋 Ready to begin?</div>
+                   <div style="color:#9aa0a6;margin-top:4px;">Let’s start with your VIN.</div>`;
+  qaLog.prepend(box);
+}
+
+function greetAndStart() {
+  startBtn?.classList.add("hidden"); // hide start if present
+  addSystemGreeting();
+  if (step < 0) nextStep();           // open first step (VIN)
+  setTimeout(() => dynamicField.querySelector("input,select")?.focus(), 0);
+}
+
+// ---------- UI helpers ----------
 function addQAItem(s) {
   const details = document.createElement("details");
   details.className = "qa-item";
@@ -145,7 +174,6 @@ function setAnswer(s, v) {
     if (s.key === "appScreenFiles") data.appScreenFiles = arr;
     if (s.key === "softwareScreenFiles") data.softwareScreenFiles = arr;
   } else if (s.key && s.key !== "done") {
-    // support nested keys like "contact.email"
     if (s.key.startsWith("contact.")) {
       const sub = s.key.split(".")[1];
       data.contact[sub] = (typeof val === "string") ? val.trim() : val;
@@ -179,9 +207,6 @@ function previewLocal(fileList) {
 
 function refreshSummary() {
   const lines = [
-    `Name: ${data.contact.name || "—"}`,
-    `Email: ${data.contact.email || "—"}`,
-    `Mobile: ${data.contact.mobile || "—"}`,
     `VIN: ${data.vin || "—"}`,
     `Foundation: ${data.foundation || "—"}`,
     `Trim: ${data.trim || "—"}`,
@@ -190,6 +215,9 @@ function refreshSummary() {
     data.titleStatus === "Loan" ? `Payoff (approx): $${data.payoff || "—"}` : null,
     `ZIP: ${data.zip || "—"}`,
     `Current Offer: ${data.currentOffer || "—"}`,
+    `Name: ${data.contact.name || "—"}`,
+    `Email: ${data.contact.email || "—"}`,
+    `Mobile: ${data.contact.mobile || "—"}`,
     `App screen files: ${data.appScreenFiles.length}`,
     `Software screen files: ${data.softwareScreenFiles.length}`,
     data.appScreenUrls.length ? `App Blob URLs:\n${data.appScreenUrls.join("\n")}` : null,
@@ -234,13 +262,12 @@ async function sendEmail() {
   const subject = encodeURIComponent("New Cybertruck Intake");
   const body = encodeURIComponent(lines + "\n\n(Generated via intake demo)");
   const to = "contact@onlyev.com";
-  // open the user's mail client with everything filled in
   window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
 }
 
 // Events
-startBtn.addEventListener("click", () => { if (step < 0) nextStep(); });
-resetBtn.addEventListener("click", () => {
+startBtn?.addEventListener("click", () => { if (step < 0) greetAndStart(); });
+resetBtn?.addEventListener("click", () => {
   step = -1; openDetails = null;
   data = { createdAt: new Date().toISOString(), source: "sellmycybertruck-ai-intake-demo",
     vin:"", foundation:"", trim:"", odometer:"", titleStatus:"", payoff:"", zip:"",
@@ -248,8 +275,8 @@ resetBtn.addEventListener("click", () => {
     appScreenFiles:[], softwareScreenFiles:[], appScreenUrls:[], softwareScreenUrls:[]
   };
   qaLog.innerHTML = ""; dynamicField.innerHTML = ""; summaryEl.innerHTML = "";
+  greetAndStart();
 });
-
 form.addEventListener("submit", (e) => {
   e.preventDefault();
   if (step < 0 || step >= steps.length) return;
@@ -272,12 +299,11 @@ form.addEventListener("submit", (e) => {
 
   nextStep();
 });
-
-copyBtn.addEventListener("click", () => {
+copyBtn?.addEventListener("click", () => {
   const txt = summaryEl.innerText;
   navigator.clipboard.writeText(txt).catch(()=>{});
 });
-exportBtn.addEventListener("click", () => {
+exportBtn?.addEventListener("click", () => {
   const out = { ...data, appScreenFiles: undefined, softwareScreenFiles: undefined };
   const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -286,7 +312,9 @@ exportBtn.addEventListener("click", () => {
   a.href = url; a.download = `cybertruck-intake-${ts}.json`; document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 });
-emailBtn.addEventListener("click", () => { sendEmail().catch(err => alert(err.message || "Upload failed")); });
+emailBtn?.addEventListener("click", () => { sendEmail().catch(err => alert(err.message || "Upload failed")); });
 
 // Init
 refreshSummary();
+document.addEventListener("DOMContentLoaded", greetAndStart);
+
