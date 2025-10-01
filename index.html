@@ -3,8 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sell My Cybertruck — AI Intake (Demo)</title>
-  <meta name="description" content="Grayscale demo of an intake agent for Sell My Cybertruck. Static HTML/CSS + one API for Blob uploads.">
+  <title>Sell My Cybertruck — Intake</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -13,58 +12,46 @@
       <span class="logo">⚡</span>
       <span class="title">Sell My Cybertruck</span>
     </div>
-    <span class="pill">DEMO</span>
+    <button id="resetBtn" class="btn btn-ghost">Start Over</button>
   </header>
 
   <main class="container">
-    <section class="card hero">
-      <h1>AI Intake Agent <span class="subtle">— grayscale</span></h1>
-      <p class="muted">No tracking. Your answers stay in this browser until you email them. Images upload only when you hit “Send to Email”.</p>
-      <div class="cta-row">
-        <button id="startBtn" class="btn">Start Intake</button>
-        <button id="resetBtn" class="btn btn-ghost">Reset</button>
-      </div>
-    </section>
-
     <section class="layout">
       <div class="card chat">
-        <!-- Collapsible Q/A log -->
+        <div class="progress">
+          <div id="progressLabel" class="progress-label">Step 1 of 12</div>
+          <div class="progress-rail"><div id="progressBar" class="progress-bar"></div></div>
+        </div>
+
         <div id="qaLog" class="qa-log" aria-live="polite"></div>
 
         <form id="chatForm" class="input-row" autocomplete="off">
           <div id="dynamicField" class="field"></div>
           <button class="btn" id="sendBtn" type="submit">Send</button>
         </form>
-
-        <details class="faq">
-          <summary>Quick questions?</summary>
-          <div class="faq-inner">
-            <div class="qa"><strong>Q:</strong> Accepted trims? <span class="muted">A:</span> AWD & Cyberbeast.</div>
-            <div class="qa"><strong>Q:</strong> Have a loan? <span class="muted">A:</span> Yes, include payoff estimate.</div>
-            <div class="qa"><strong>Q:</strong> Required images? <span class="muted">A:</span> <em>App screen</em> + <em>Software screen</em> (see examples).</div>
-          </div>
-        </details>
       </div>
 
       <aside class="card summary">
         <h2>Intake Summary</h2>
         <div id="summary"></div>
         <div class="summary-actions">
-          <button id="copyBtn" class="btn btn-ghost">Copy Summary</button>
           <button id="exportBtn" class="btn">Export JSON</button>
           <button id="emailBtn" class="btn btn-ghost">Send to Email</button>
         </div>
-        <p class="legal muted">This demo emails via your mail app to <code>contact@onlyev.com</code> with Blob links. No external email service yet.</p>
+        <p class="legal muted">
+          Email goes to <code>contact@onlyev.com</code> with Blob links. No external email service yet.
+        </p>
       </aside>
     </section>
   </main>
 
   <footer class="site-footer">
-    <span class="muted">© <span id="year"></span> SellMyCybertruck.com · Demo UI</span>
+    <span class="muted">© <span id="year"></span> SellMyCybertruck.com</span>
   </footer>
 
   <script src="script.js"></script>
 </body>
 </html>
+
 
 
