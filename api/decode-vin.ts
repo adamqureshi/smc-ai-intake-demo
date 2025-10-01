@@ -14,16 +14,23 @@ export async function POST(req: Request) {
   try {
     const { vin } = await req.json();
     if (!vin || String(vin).replace(/\s/g, '').length < 11) {
-      return new Response(JSON.stringify({ error: 'VIN is required' }), { status: 400 });
+      return new Response(JSON.stringify({ error: 'VIN is required' }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      });
     }
 
-    // NHTSA vPIC — decode single VIN
     const url = `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${encodeURIComponent(
       vin
     )}?format=json`;
 
     const r = await fetch(url, { cache: 'no-store' });
-    if (!r.ok) return new Response(JSON.stringify({ error: 'decode failed' }), { status: 502 });
+    if (!r.ok) {
+      return new Response(JSON.stringify({ error: 'decode failed' }), {
+        status: 502,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
 
     const json = await r.json();
     const row = (json?.Results && json.Results[0]) || {};
@@ -37,8 +44,13 @@ export async function POST(req: Request) {
       vehicleType: row.VehicleType || undefined,
     };
 
-    return Response.json({ ok: true, info });
+    return new Response(JSON.stringify({ ok: true, info }), {
+      headers: { 'content-type': 'application/json' },
+    });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || 'error' }), { status: 500 });
+    return new Response(JSON.stringify({ error: e?.message || 'error' }), {
+      status: 500,
+      headers: { 'content-type': 'application/json' },
+    });
   }
 }
