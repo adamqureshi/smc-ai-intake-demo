@@ -318,3 +318,4 @@ emailBtn?.addEventListener("click", () => { sendEmail().catch(err => alert(err.m
 refreshSummary();
 document.addEventListener("DOMContentLoaded", greetAndStart);
 
+
