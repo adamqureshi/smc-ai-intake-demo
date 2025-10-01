@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sell My Cybertruck — AI Intake (Demo)</title>
-  <meta name="description" content="Grayscale demo of an AI intake agent for Sell My Cybertruck. Static HTML/CSS with light JS for a guided chat-style flow.">
+  <meta name="description" content="Grayscale demo of an AI intake agent for Sell My Cybertruck. Static HTML/CSS with a collapsible Q/A flow.">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -18,7 +18,7 @@
 
   <main class="container">
     <section class="card hero">
-      <h1>AI Intake Agent <span class="subtle">— grayscale demo</span></h1>
+      <h1>AI Intake Agent <span class="subtle">— collapsible Q/A</span></h1>
       <p class="muted">No server. No tracking. Your answers stay in this browser until you export them. Images/videos are not uploaded.</p>
       <div class="cta-row">
         <button id="startBtn" class="btn">Start Intake</button>
@@ -28,7 +28,8 @@
 
     <section class="layout">
       <div class="card chat">
-        <div id="chat" class="chat-log" aria-live="polite"></div>
+        <!-- Collapsible Q/A log -->
+        <div id="qaLog" class="qa-log" aria-live="polite"></div>
 
         <form id="chatForm" class="input-row" autocomplete="off">
           <div id="dynamicField" class="field"></div>
@@ -74,3 +75,4 @@
   <script src="script.js"></script>
 </body>
 </html>
+
