@@ -1,4 +1,4 @@
-// Grayscale collapsible intake + Blob upload + mailto summary
+// Grayscale collapsible intake + Blob upload + mailto summary (VIN-first + greeting)
 const yearEl = document.getElementById("year");
 if (yearEl) yearEl.textContent = new Date().getFullYear();
 
@@ -33,7 +33,7 @@ let data = {
   softwareScreenUrls: []    // Blob URLs after upload
 };
 
-// ----- FLOw: start with VIN, contact later -----
+// ----- FLOW: start with VIN, contact later -----
 const steps = [
   // Vehicle first
   { key: "vin", prompt: "VIN (17 characters)", type: "text",
@@ -65,7 +65,6 @@ const steps = [
 
 // ---------- Greeting + auto-start ----------
 function addSystemGreeting() {
-  // simple inline-styled banner so no CSS change is required
   const box = document.createElement("div");
   box.style.border = "1px solid #2a2d31";
   box.style.background = "#0f1012";
@@ -78,9 +77,9 @@ function addSystemGreeting() {
 }
 
 function greetAndStart() {
-  startBtn?.classList.add("hidden"); // hide start if present
+  if (startBtn) startBtn.style.display = "none"; // hide manual start
   addSystemGreeting();
-  if (step < 0) nextStep();           // open first step (VIN)
+  if (step < 0) nextStep();                       // open first step (VIN)
   setTimeout(() => dynamicField.querySelector("input,select")?.focus(), 0);
 }
 
@@ -317,5 +316,6 @@ emailBtn?.addEventListener("click", () => { sendEmail().catch(err => alert(err.m
 // Init
 refreshSummary();
 document.addEventListener("DOMContentLoaded", greetAndStart);
+
 
 
