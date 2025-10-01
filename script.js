@@ -49,7 +49,7 @@ const steps = [
     prompt: "Is it a Foundation Series?",
     type: "select",
     options: ["Yes — Foundation", "No — Not Foundation"],
-    map: (v) => (v.startsWith("Yes") ? "Foundation" : "Non‑Foundation")
+    map: (v) => (v.startsWith("Yes") ? "Foundation" : "Non-Foundation")
   },
   {
     key: "trim",
@@ -92,7 +92,7 @@ const steps = [
   },
   {
     key: "media",
-    prompt: "Add images/video (local only; not uploaded). Exterior, interior, odometer, walk‑around video.",
+    prompt: "Add images/video (local only; not uploaded). Exterior, interior, odometer, walk-around video.",
     type: "file",
     accept: "image/*,video/*",
     multiple: true,
@@ -298,13 +298,13 @@ function keywordQA(text) {
     return "Loans are fine. We'll need your approximate payoff today and later a lender payoff letter to finalize.";
   }
   if (t.includes("photo") || t.includes("image") || t.includes("video")) {
-    return "Please upload exterior (all sides), interior, odometer, any damage, and a short walk‑around video.";
+    return "Please upload exterior (all sides), interior, odometer, any damage, and a short walk-around video.";
   }
   if (t.includes("foundation")) {
-    return "Foundation Series is supported. We just need you to confirm Foundation vs Non‑Foundation.";
+    return "Foundation Series is supported. We just need you to confirm Foundation vs Non-Foundation.";
   }
   if (t.includes("vin")) {
-    return "Your 17‑character VIN helps us verify trim and build. Paste it in the VIN step.";
+    return "Your 17-character VIN helps us verify trim and build. Paste it in the VIN step.";
   }
   return null;
 }
@@ -359,3 +359,4 @@ exportBtn.addEventListener("click", exportJSON);
 
 // Initialize UI
 refreshSummary();
+
