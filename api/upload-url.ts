@@ -1,21 +1,34 @@
 // api/upload-url.ts
-import { generateUploadURL } from '@vercel/blob';
+import { put } from '@vercel/blob';
 
 export const runtime = 'edge';
 
 export async function POST(req: Request) {
   try {
-    const { contentType, filename } = await req.json();
-    if (!contentType || !filename) {
-      return new Response(JSON.stringify({ error: 'contentType and filename required' }), { status: 400 });
+    const form = await req.formData();
+    const file = form.get('file') as File | null;
+    if (!file) {
+      return new Response(JSON.stringify({ error: 'file required' }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      });
     }
-    const { url, id } = await generateUploadURL({
-      contentType,
-      metadata: { filename },
-      access: 'public', // public file after upload
+
+    // Store in a folder; add random suffix for uniqueness
+    const result = await put(
+      `intake/${Date.now()}-${file.name}`,
+      file,
+      { access: 'public', contentType: file.type, addRandomSuffix: true }
+    );
+
+    return new Response(JSON.stringify({ url: result.url, pathname: result.pathname }), {
+      headers: { 'content-type': 'application/json' },
     });
-    return Response.json({ url, id });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || 'failed' }), { status: 500 });
+    return new Response(JSON.stringify({ error: e?.message || 'failed' }), {
+      status: 500,
+      headers: { 'content-type': 'application/json' },
+    });
   }
 }
+
