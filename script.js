@@ -229,7 +229,20 @@ function startOver(){
   };
   qaLog.innerHTML=""; dynamicField.innerHTML=""; summaryEl.innerHTML=""; progressBar.style.width="0%";
   nextStep(); // greeting + VIN
+} 
+async function decodeVin(vin) {
+  const res = await fetch('/api/decode-vin', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ vin })
+  });
+  if (!res.ok) return null;
+  const { info } = await res.json();
+  data.vinDecoded = info || {};
+  refreshSummary();
+  return info;
 }
+
 
 form.addEventListener("submit",(e)=>{
   e.preventDefault(); if(step<0||step>=steps.length) return;
