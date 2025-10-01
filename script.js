@@ -1,6 +1,6 @@
-// Collapsible Q/A intake (static demo)
+// Grayscale collapsible intake + Blob upload + mailto summary
 const yearEl = document.getElementById("year");
-yearEl.textContent = new Date().getFullYear();
+if (yearEl) yearEl.textContent = new Date().getFullYear();
 
 const qaLog = document.getElementById("qaLog");
 const form = document.getElementById("chatForm");
@@ -9,7 +9,7 @@ const startBtn = document.getElementById("startBtn");
 const resetBtn = document.getElementById("resetBtn");
 const copyBtn = document.getElementById("copyBtn");
 const exportBtn = document.getElementById("exportBtn");
-const mailtoBtn = document.getElementById("mailtoBtn");
+const emailBtn = document.getElementById("emailBtn");
 const summaryEl = document.getElementById("summary");
 
 let step = -1;
@@ -19,7 +19,6 @@ let data = {
   createdAt: new Date().toISOString(),
   source: "sellmycybertruck-ai-intake-demo",
   vin: "",
-  inferredTrim: "",
   foundation: "",
   trim: "",
   odometer: "",
@@ -27,47 +26,36 @@ let data = {
   payoff: "",
   zip: "",
   currentOffer: "",
-  media: []
+  contact: { name: "", email: "", mobile: "" },
+  appScreenFiles: [],       // File objects (local) until upload
+  softwareScreenFiles: [],  // File objects (local) until upload
+  appScreenUrls: [],        // Blob URLs after upload
+  softwareScreenUrls: []    // Blob URLs after upload
 };
 
 const steps = [
-  {
-    key: "vin",
-    prompt: "VIN (17 characters)",
-    type: "text",
-    placeholder: "7G2CEHED8RA004637",
-    validate: (v) => v && v.replace(/\s/g, "").length >= 11,
-    onAnswer: (v) => {
-      data.vin = v.toUpperCase().trim();
-      data.inferredTrim = "Unknown (demo)";
-    }
-  },
-  {
-    key: "foundation",
-    prompt: "Is it a Foundation Series?",
-    type: "select",
-    options: ["Yes — Foundation", "No — Not Foundation"],
-    map: (v) => (v.startsWith("Yes") ? "Foundation" : "Non-Foundation")
-  },
+  // Contact first (keeps it business-like)
+  { key: "contact.name", prompt: "Your full name", type: "text", placeholder: "Jane Doe" },
+  { key: "contact.email", prompt: "Your email", type: "text", placeholder: "you@example.com", validate: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) },
+  { key: "contact.mobile", prompt: "Your mobile number", type: "text", placeholder: "(555) 123-4567", validate: v => v.replace(/\D/g,'').length >= 10 },
+
+  // Vehicle
+  { key: "vin", prompt: "VIN (17 characters)", type: "text", placeholder: "7G2CEHED8RA004637", validate: v => v && v.replace(/\s/g,"").length >= 11 },
+  { key: "foundation", prompt: "Is it a Foundation Series?", type: "select", options: ["Yes — Foundation", "No — Not Foundation"], map: v => v.startsWith("Yes") ? "Foundation" : "Non-Foundation" },
   { key: "trim", prompt: "Which trim?", type: "select", options: ["AWD", "Cyberbeast"] },
   { key: "odometer", prompt: "Current odometer (miles)", type: "number", min: 0 },
   { key: "titleStatus", prompt: "Title on hand or loan?", type: "select", options: ["Title on hand", "Loan"] },
   { key: "payoff", prompt: "Approximate payoff amount today (USD)", type: "number", min: 0, when: () => data.titleStatus === "Loan" },
-  { key: "zip", prompt: "ZIP code", type: "text", placeholder: "e.g., 10001", validate: (v) => /^\d{5}(-\d{4})?$/.test(v.trim()) },
+  { key: "zip", prompt: "ZIP code", type: "text", placeholder: "10001", validate: v => /^\d{5}(-\d{4})?$/.test(v.trim()) },
   { key: "currentOffer", prompt: "Any current valid offers? (optional)", type: "text", placeholder: "Optional", required: false },
-  {
-    key: "media",
-    prompt: "Add images/video (local only; not uploaded). Exterior, interior, odometer, walk-around video.",
-    type: "file",
-    accept: "image/*,video/*",
-    multiple: true,
-    required: false,
-    onAnswer: (files) => previewMedia(files)
-  },
-  { key: "done", prompt: "All set. Review the summary and export/copy/email.", type: "end" }
+
+  // Required images: app + software screens
+  { key: "appScreenFiles", prompt: "Upload APP screen image(s) (local preview; uploaded on Send)", type: "file", accept: "image/*", multiple: true, onAnswer: files => previewLocal(files) },
+  { key: "softwareScreenFiles", prompt: "Upload SOFTWARE screen image(s) (local preview; uploaded on Send)", type: "file", accept: "image/*", multiple: true, onAnswer: files => previewLocal(files) },
+
+  { key: "done", prompt: "All set. Review the summary, then click ‘Send to Email’.", type: "end" }
 ];
 
-// Build a collapsible item for the current step
 function addQAItem(s) {
   const details = document.createElement("details");
   details.className = "qa-item";
@@ -75,96 +63,61 @@ function addQAItem(s) {
 
   const summary = document.createElement("summary");
   const icon = document.createElement("div");
-  icon.className = "qa-icon";
-  icon.textContent = "👤"; // user for question
+  icon.className = "qa-icon"; icon.textContent = "👤";
   const label = document.createElement("div");
-  label.className = "qa-question";
-  label.textContent = s.prompt;
-
-  summary.appendChild(icon);
-  summary.appendChild(label);
+  label.className = "qa-question"; label.textContent = s.prompt;
+  summary.appendChild(icon); summary.appendChild(label);
   details.appendChild(summary);
 
   const body = document.createElement("div");
   body.className = "qa-answer";
-  // where the live input renders:
   const live = document.createElement("div");
-  live.id = "liveField";
-  body.appendChild(live);
-
-  // where we print the frozen answer after submit:
+  live.id = "liveField"; body.appendChild(live);
   const ans = document.createElement("div");
-  ans.className = "answer-text";
-  ans.style.display = "none";
-  body.appendChild(ans);
+  ans.className = "answer-text"; ans.style.display = "none"; body.appendChild(ans);
 
   details.appendChild(body);
   qaLog.appendChild(details);
 
-  // manage which is open
   if (openDetails) openDetails.open = false;
   openDetails = details;
 
-  // render the actual input into the main dynamic field (bottom) AND into the live slot for context
   renderField(s);
-  // mirror the control in the card body for visual focus around the current step
   const mirrored = dynamicField.firstElementChild ? dynamicField.firstElementChild.cloneNode(true) : null;
-  if (mirrored) {
-    // keep mirrored read-only cursor
-    mirrored.disabled = false;
-    live.appendChild(mirrored);
-  }
+  if (mirrored) { mirrored.disabled = false; live.appendChild(mirrored); }
 
-  return { details, ans };
+  return { ans };
 }
 
 function renderField(s) {
   dynamicField.innerHTML = "";
   if (s.type === "text") {
-    const input = document.createElement("input");
-    input.className = "input";
-    input.type = "text";
-    input.placeholder = s.placeholder || "";
-    input.autocomplete = "off";
-    dynamicField.appendChild(input);
-    input.focus();
+    const input = mk("input", { className: "input", type: "text", placeholder: s.placeholder || "", autocomplete: "off" });
+    dynamicField.appendChild(input); input.focus();
   } else if (s.type === "number") {
-    const input = document.createElement("input");
-    input.className = "number";
-    input.type = "number";
+    const input = mk("input", { className: "number", type: "number", placeholder: s.placeholder || "" });
     if (typeof s.min === "number") input.min = s.min;
-    input.placeholder = s.placeholder || "";
-    dynamicField.appendChild(input);
-    input.focus();
+    dynamicField.appendChild(input); input.focus();
   } else if (s.type === "select") {
-    const sel = document.createElement("select");
-    sel.className = "select";
-    for (const opt of s.options) {
-      const o = document.createElement("option");
-      o.value = opt; o.textContent = opt;
-      sel.appendChild(o);
-    }
-    dynamicField.appendChild(sel);
-    sel.focus();
+    const sel = mk("select", { className: "select" });
+    for (const opt of s.options) sel.appendChild(mk("option", { value: opt }, opt));
+    dynamicField.appendChild(sel); sel.focus();
   } else if (s.type === "file") {
-    const label = document.createElement("label");
-    label.className = "small";
-    label.textContent = "Files are kept in your browser for preview only (not uploaded).";
-
-    const file = document.createElement("input");
-    file.className = "file";
-    file.type = "file";
+    const label = mk("label", { className: "small" }, "Files are kept local until you click ‘Send to Email’. Then they upload to Blob.");
+    const file = mk("input", { className: "file", type: "file" });
     if (s.accept) file.accept = s.accept;
     if (s.multiple) file.multiple = true;
-
-    dynamicField.appendChild(label);
-    dynamicField.appendChild(file);
+    dynamicField.appendChild(label); dynamicField.appendChild(file);
   } else if (s.type === "end") {
-    const span = document.createElement("span");
-    span.className = "muted";
-    span.textContent = "You're all set.";
-    dynamicField.appendChild(span);
+    dynamicField.appendChild(mk("span", { className: "muted" }, "You're all set."));
   }
+}
+
+function mk(tag, props = {}, text = "") {
+  const el = document.createElement(tag);
+  Object.assign(el, props);
+  if (text) el.textContent = text;
+  return el;
 }
 
 function currentInputValue() {
@@ -177,7 +130,7 @@ function currentInputValue() {
 function validateAnswer(s, v) {
   if (s.type === "end") return true;
   if (s.required === false && (v === "" || v == null)) return true;
-  if (s.type === "file") return true; // optional
+  if (s.type === "file") return true;
   if (s.validate) return s.validate(v);
   return v !== "" && v != null;
 }
@@ -187,12 +140,19 @@ function setAnswer(s, v) {
   if (s.map) val = s.map(v);
   if (s.type === "number") val = String(v).trim();
   if (s.type === "file") {
-    data.media = [];
-    for (const f of v) data.media.push({ name: f.name, type: f.type, size: f.size });
+    const arr = [];
+    for (const f of v) arr.push(f);
+    if (s.key === "appScreenFiles") data.appScreenFiles = arr;
+    if (s.key === "softwareScreenFiles") data.softwareScreenFiles = arr;
   } else if (s.key && s.key !== "done") {
-    data[s.key] = (typeof val === "string") ? val.trim() : val;
+    // support nested keys like "contact.email"
+    if (s.key.startsWith("contact.")) {
+      const sub = s.key.split(".")[1];
+      data.contact[sub] = (typeof val === "string") ? val.trim() : val;
+    } else {
+      data[s.key] = (typeof val === "string") ? val.trim() : val;
+    }
   }
-  if (s.onAnswer) s.onAnswer(v);
   refreshSummary();
 }
 
@@ -201,35 +161,27 @@ function nextStep() {
     const s = steps[step];
     if (s.when && !s.when()) continue;
     const ctx = addQAItem(s);
-    // store a reference on the step so we can fill the frozen answer later
     s._ansNode = ctx.ans;
     return;
   }
   renderField({ type: "end" });
 }
 
-function previewMedia(fileList) {
-  // Put previews under the current open QA item
+function previewLocal(fileList) {
   const live = openDetails?.querySelector("#liveField");
-  const container = document.createElement("div");
-  container.className = "preview-media";
+  const container = mk("div", { className: "preview-media" });
   [...fileList].forEach(f => {
     const url = URL.createObjectURL(f);
-    if (f.type.startsWith("video/")) {
-      const vid = document.createElement("video");
-      vid.src = url; vid.controls = true;
-      container.appendChild(vid);
-    } else {
-      const img = document.createElement("img");
-      img.src = url;
-      container.appendChild(img);
-    }
+    const img = mk("img"); img.src = url; container.appendChild(img);
   });
   live?.appendChild(container);
 }
 
 function refreshSummary() {
   const lines = [
+    `Name: ${data.contact.name || "—"}`,
+    `Email: ${data.contact.email || "—"}`,
+    `Mobile: ${data.contact.mobile || "—"}`,
     `VIN: ${data.vin || "—"}`,
     `Foundation: ${data.foundation || "—"}`,
     `Trim: ${data.trim || "—"}`,
@@ -238,58 +190,64 @@ function refreshSummary() {
     data.titleStatus === "Loan" ? `Payoff (approx): $${data.payoff || "—"}` : null,
     `ZIP: ${data.zip || "—"}`,
     `Current Offer: ${data.currentOffer || "—"}`,
-    `Files selected (local only): ${data.media.length}`
+    `App screen files: ${data.appScreenFiles.length}`,
+    `Software screen files: ${data.softwareScreenFiles.length}`,
+    data.appScreenUrls.length ? `App Blob URLs:\n${data.appScreenUrls.join("\n")}` : null,
+    data.softwareScreenUrls.length ? `Software Blob URLs:\n${data.softwareScreenUrls.join("\n")}` : null
   ].filter(Boolean);
 
   summaryEl.innerHTML = "<pre><code>" + lines.join("\n") + "</code></pre>";
-  const subject = encodeURIComponent("Sell My Cybertruck — Intake");
-  const body = encodeURIComponent(lines.join("\n") + "\n\n(This came from the static demo.)");
-  mailtoBtn.href = `mailto:offers@sellmycybertruck.com?subject=${subject}&body=${body}`;
 }
 
-function exportJSON() {
-  const out = { ...data, media: data.media };
-  const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  a.href = url;
-  a.download = `cybertruck-intake-${ts}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+async function getUploadURL(file) {
+  const r = await fetch('/api/upload-url', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ contentType: file.type, filename: file.name })
+  });
+  if (!r.ok) throw new Error('upload-url failed');
+  return r.json(); // { url, id }
 }
 
-function copySummary() {
-  const txt = summaryEl.innerText;
-  navigator.clipboard.writeText(txt).then(() => {})
-  .catch(() => alert("Select the summary and copy."));
+async function uploadToBlob(files) {
+  const urls = [];
+  for (const f of files) {
+    const { url } = await getUploadURL(f);
+    await fetch(url, { method: 'PUT', body: f });
+    const publicUrl = url.split('?')[0]; // blob public URL
+    urls.push(publicUrl);
+  }
+  return urls;
 }
 
-// Basic keyword Q&A (works anywhere)
-function keywordQA(text) {
-  const t = text.toLowerCase();
-  if (t.includes("how much") || t.includes("offer")) return "We generate a cash offer after intake. If you have a valid current offer, include it so we can try to beat it.";
-  if (t.includes("loan")) return "Loans are fine. We'll need your approximate payoff today and later a lender payoff letter.";
-  if (t.includes("photo") || t.includes("image") || t.includes("video")) return "Upload exterior (all sides), interior, odometer, any damage, and a short walk-around video.";
-  if (t.includes("foundation")) return "Foundation Series is supported. Please confirm Foundation vs Non-Foundation.";
-  if (t.includes("vin")) return "Paste your 17-character VIN so we can verify the build.";
-  return null;
+async function sendEmail() {
+  // upload images first (if not already uploaded)
+  if (data.appScreenFiles.length) {
+    data.appScreenUrls = await uploadToBlob(data.appScreenFiles);
+  }
+  if (data.softwareScreenFiles.length) {
+    data.softwareScreenUrls = await uploadToBlob(data.softwareScreenFiles);
+  }
+  refreshSummary();
+
+  const lines = summaryEl.innerText;
+  const subject = encodeURIComponent("New Cybertruck Intake");
+  const body = encodeURIComponent(lines + "\n\n(Generated via intake demo)");
+  const to = "contact@onlyev.com";
+  // open the user's mail client with everything filled in
+  window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
 }
 
 // Events
-startBtn.addEventListener("click", () => {
-  if (step >= 0) return;
-  nextStep();
-});
-
+startBtn.addEventListener("click", () => { if (step < 0) nextStep(); });
 resetBtn.addEventListener("click", () => {
   step = -1; openDetails = null;
-  data = { createdAt: new Date().toISOString(), source: "sellmycybertruck-ai-intake-demo", vin: "", inferredTrim: "", foundation: "", trim: "", odometer: "", titleStatus: "", payoff: "", zip: "", currentOffer: "", media: [] };
-  qaLog.innerHTML = "";
-  dynamicField.innerHTML = "";
-  summaryEl.innerHTML = "";
+  data = { createdAt: new Date().toISOString(), source: "sellmycybertruck-ai-intake-demo",
+    vin:"", foundation:"", trim:"", odometer:"", titleStatus:"", payoff:"", zip:"",
+    currentOffer:"", contact:{name:"",email:"",mobile:""},
+    appScreenFiles:[], softwareScreenFiles:[], appScreenUrls:[], softwareScreenUrls:[]
+  };
+  qaLog.innerHTML = ""; dynamicField.innerHTML = ""; summaryEl.innerHTML = "";
 });
 
 form.addEventListener("submit", (e) => {
@@ -299,14 +257,6 @@ form.addEventListener("submit", (e) => {
   const s = steps[step];
   const v = currentInputValue();
 
-  if (typeof v === "string") {
-    const qa = keywordQA(v);
-    if (qa && (!s.validate || !s.validate(v))) {
-      alert(qa);
-      return;
-    }
-  }
-
   if (!validateAnswer(s, v)) {
     alert("Please provide a valid answer to continue.");
     return;
@@ -314,19 +264,29 @@ form.addEventListener("submit", (e) => {
 
   if (s.type !== "end") {
     setAnswer(s, v);
-    // freeze the answer in the collapsed card
     if (s._ansNode) {
       s._ansNode.style.display = "block";
-      const displayText = (s.type === "file") ? `${v.length} file(s)` : String(v);
-      s._ansNode.textContent = displayText;
+      s._ansNode.textContent = (s.type === "file") ? `${v.length} file(s)` : String(v);
     }
   }
 
   nextStep();
 });
 
-copyBtn.addEventListener("click", copySummary);
-exportBtn.addEventListener("click", exportJSON);
+copyBtn.addEventListener("click", () => {
+  const txt = summaryEl.innerText;
+  navigator.clipboard.writeText(txt).catch(()=>{});
+});
+exportBtn.addEventListener("click", () => {
+  const out = { ...data, appScreenFiles: undefined, softwareScreenFiles: undefined };
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  a.href = url; a.download = `cybertruck-intake-${ts}.json`; document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+});
+emailBtn.addEventListener("click", () => { sendEmail().catch(err => alert(err.message || "Upload failed")); });
 
-// Initialize
+// Init
 refreshSummary();
