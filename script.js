@@ -226,13 +226,17 @@ function refreshSummary() {
   summaryEl.innerHTML = "<pre><code>" + lines.join("\n") + "</code></pre>";
 }
 
-async function getUploadURL(file) {
-  const r = await fetch('/api/upload-url', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ contentType: file.type, filename: file.name }) });
-  if (!r.ok) throw new Error('upload-url failed'); return r.json();
-}
+// === CHANGED: simplified uploads — POST files to /api/upload-url with FormData ===
 async function uploadToBlob(files) {
   const urls = [];
-  for (const f of files) { const { url } = await getUploadURL(f); await fetch(url, { method: 'PUT', body: f }); urls.push(url.split('?')[0]); }
+  for (const f of files) {
+    const fd = new FormData();
+    fd.append('file', f);
+    const r = await fetch('/api/upload-url', { method: 'POST', body: fd });
+    if (!r.ok) throw new Error('upload failed');
+    const { url } = await r.json();
+    urls.push(url); // public Blob URL
+  }
   return urls;
 }
 
