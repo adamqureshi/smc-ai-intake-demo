@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sell My Cybertruck — AI Intake (Demo)</title>
-  <meta name="description" content="Grayscale demo of an AI intake agent for Sell My Cybertruck. Static HTML/CSS with a collapsible Q/A flow.">
+  <meta name="description" content="Grayscale demo of an intake agent for Sell My Cybertruck. Static HTML/CSS + one API for Blob uploads.">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -18,11 +18,11 @@
 
   <main class="container">
     <section class="card hero">
-      <h1>AI Intake Agent <span class="subtle">— collapsible Q/A</span></h1>
-      <p class="muted">No server. No tracking. Your answers stay in this browser until you export them. Images/videos are not uploaded.</p>
+      <h1>AI Intake Agent <span class="subtle">— grayscale</span></h1>
+      <p class="muted">No tracking. Your answers stay in this browser until you email them. Images upload only when you hit “Send to Email”.</p>
       <div class="cta-row">
         <button id="startBtn" class="btn">Start Intake</button>
-        <button id="resetBtn" class="btn btn-ghost" title="Clear all answers">Reset</button>
+        <button id="resetBtn" class="btn btn-ghost">Reset</button>
       </div>
     </section>
 
@@ -39,18 +39,9 @@
         <details class="faq">
           <summary>Quick questions?</summary>
           <div class="faq-inner">
-            <div class="qa">
-              <strong>Q:</strong> Do you accept Cyberbeast?<br/>
-              <span class="muted">A:</span> Yes. We handle both AWD and Cyberbeast.
-            </div>
-            <div class="qa">
-              <strong>Q:</strong> I have a loan. Can I still sell?<br/>
-              <span class="muted">A:</span> Yes. We'll ask your approximate payoff and work with your lender payoff letter.
-            </div>
-            <div class="qa">
-              <strong>Q:</strong> What images do you need?<br/>
-              <span class="muted">A:</span> Exterior all sides, interior, odometer, and a quick walk-around video if possible.
-            </div>
+            <div class="qa"><strong>Q:</strong> Accepted trims? <span class="muted">A:</span> AWD & Cyberbeast.</div>
+            <div class="qa"><strong>Q:</strong> Have a loan? <span class="muted">A:</span> Yes, include payoff estimate.</div>
+            <div class="qa"><strong>Q:</strong> Required images? <span class="muted">A:</span> <em>App screen</em> + <em>Software screen</em> (see examples).</div>
           </div>
         </details>
       </div>
@@ -61,9 +52,9 @@
         <div class="summary-actions">
           <button id="copyBtn" class="btn btn-ghost">Copy Summary</button>
           <button id="exportBtn" class="btn">Export JSON</button>
-          <a id="mailtoBtn" class="btn btn-ghost" href="#" download>Email</a>
+          <button id="emailBtn" class="btn btn-ghost">Send to Email</button>
         </div>
-        <p class="legal muted">This is a static demo. Submitting does not send data. For production, connect this UI to your API.</p>
+        <p class="legal muted">This demo emails via your mail app to <code>contact@onlyev.com</code> with Blob links. No external email service yet.</p>
       </aside>
     </section>
   </main>
@@ -75,4 +66,5 @@
   <script src="script.js"></script>
 </body>
 </html>
+
 
