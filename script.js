@@ -244,27 +244,38 @@ async function decodeVin(vin) {
 }
 
 
-form.addEventListener("submit",(e)=>{
-  e.preventDefault(); if(step<0||step>=steps.length) return;
-  const s=steps[step]; const v=currentInputValue();
-  if(!validateAnswer(s,v)){ alert("Please provide a valid answer to continue."); return; }
-  if(s.type!=="end" && s.type!=="info"){
-    setAnswer(s,v);
-    if(s._ansNode){ s._ansNode.style.display="block"; s._ansNode.textContent=(s.type==="file")?`${v.length} file(s)`:String(v); }
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (step < 0 || step >= steps.length) return;
+
+  const s = steps[step];
+  const v = currentInputValue();
+
+  if (!validateAnswer(s, v)) {
+    alert("Please provide a valid answer to continue.");
+    return;
   }
+
+  if (s.type !== "end" && s.type !== "info") {
+    setAnswer(s, v);
+
+    // If this is the VIN step, decode and show Year/Make/Model
+    if (s.key === "vin") {
+      const info = await decodeVin(String(v).trim());
+      if (info && s._ansNode) {
+        const badge = [info.year, info.make, info.model].filter(Boolean).join(" • ");
+        s._ansNode.style.display = "block";
+        s._ansNode.textContent = `${String(v).trim()}${badge ? ` — ${badge}` : ""}`;
+      }
+    } else if (s._ansNode) {
+      s._ansNode.style.display = "block";
+      s._ansNode.textContent = (s.type === "file") ? `${v.length} file(s)` : String(v);
+    }
+  }
+
   nextStep();
 });
-exportBtn.addEventListener("click",()=>{
-  const out={...data,truckPhotos:undefined,appScreenFiles:undefined,softwareScreenFiles:undefined};
-  const blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});
-  const url=URL.createObjectURL(blob); const a=document.createElement("a"); const ts=new Date().toISOString().replace(/[:.]/g,"-");
-  a.href=url; a.download=`cybertruck-intake-${ts}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-});
-emailBtn.addEventListener("click",()=>{ sendEmail().catch(err=>alert(err.message||"Upload failed")); });
 
-// Init
-nextStep(); // show greeting card then VIN immediately
-refreshSummary();
 
 
 
