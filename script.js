@@ -1,4 +1,7 @@
-// Dead-simple Cybertruck intake with VIN-first flow, progress, Blob uploads, VIN decode, and mailto to contact@onlyev.com
+// Dead-simple Cybertruck intake with section chunks, stage bar, VIN-first flow,
+// progress, Blob uploads, VIN decode, and mailto to contact@onlyev.com
+
+// --- DOM refs ---
 const yearEl = document.getElementById("year");
 if (yearEl) yearEl.textContent = new Date().getFullYear();
 
@@ -12,7 +15,13 @@ const summaryEl = document.getElementById("summary");
 const progressLabel = document.getElementById("progressLabel");
 const progressBar = document.getElementById("progressBar");
 
-let step = -1, openDetails = null;
+// NEW: stage bar + continue button
+const stagebarEl = document.getElementById("stagebar");
+const nextSectionBtn = document.getElementById("nextSectionBtn");
+
+// --- State ---
+let step = -1;
+let openDetails = null;
 
 let data = {
   createdAt: new Date().toISOString(),
@@ -37,53 +46,88 @@ let data = {
   softwareScreenUrls: []
 };
 
-// Steps exactly as requested
+// NEW: top-level sections for the stage bar
+const sections = [
+  { id: "vin",     label: "VIN" },
+  { id: "owner",   label: "Ownership & ZIP" },
+  { id: "photos",  label: "Photos" },
+  { id: "contact", label: "Contact" },
+  { id: "review",  label: "Review & Send" },
+];
+let currentSectionIndex = 0;
+
+// Steps with section markers (type:"section")
 const steps = [
+  { type: "section", id: "vin" },
+
   // Greeting (non-input; opens VIN immediately)
   { key: "_greet", prompt: "Hello! 👋 Ready to begin? Let’s start with your VIN.", type: "info" },
 
   // Vehicle
   { key: "vin", prompt: "VIN (17 characters)", type: "text", placeholder: "7G2CEHED8RA004637", validate: v => v && v.replace(/\s/g, "").length >= 11 },
+
+  { type: "section", id: "owner" },
+
   { key: "foundation", prompt: "Foundation Series?", type: "select", options: ["Yes", "No"], map: v => v === "Yes" ? "Foundation" : "Non-Foundation" },
   { key: "trim", prompt: "Trim", type: "select", options: ["AWD (All-Wheel Drive)", "Cyberbeast (Triple Motor)"], map: v => v.startsWith("AWD") ? "AWD" : "Cyberbeast" },
   { key: "odometer", prompt: "How many miles today?", type: "number", min: 0 },
   { key: "titleStatus", prompt: "Do you have the title on hand?", type: "select", options: ["Yes", "No"], map: v => v === "Yes" ? "Title on hand" : "Loan" },
   { key: "payoff", prompt: "If loan: payoff amount today (USD)", type: "number", min: 0, when: () => data.titleStatus === "Loan" },
   { key: "bank", prompt: "What bank is the loan with?", type: "text", placeholder: "e.g., Wells Fargo, US Bank", when: () => data.titleStatus === "Loan" },
+  { key: "zip", prompt: "Your ZIP code", type: "text", placeholder: "10001", validate: v => /^\d{5}(-\d{4})?$/.test(v.trim()) },
+
+  { type: "section", id: "photos" },
 
   // Media
   { key: "truckPhotos", prompt: "Upload photos of the truck (exterior/interior, damage if any).", type: "file", accept: "image/*", multiple: true, onAnswer: files => previewLocal(files) },
   { key: "softwareScreenFiles", prompt: "Upload SOFTWARE screen screenshot (VIN + miles).", type: "file", accept: "image/*", multiple: true, onAnswer: files => previewLocal(files) },
   { key: "appScreenFiles", prompt: "Upload APP screen screenshot (VIN + odometer).", type: "file", accept: "image/*", multiple: true, onAnswer: files => previewLocal(files) },
 
-  // Offers
+  { type: "section", id: "contact" },
+
+  // Offers + Contact
   { key: "currentOfferYN", prompt: "Do you have any current valid offers?", type: "select", options: ["No", "Yes"] },
   { key: "currentOffer", prompt: "If yes, paste the offer amount/details.", type: "text", placeholder: "e.g., $92,500 from CarbuyerCo", when: () => data.currentOfferYN === "Yes", required: false },
-
-  // Contact
   { key: "contact.mobile", prompt: "Mobile # (we’ll text you)", type: "text", placeholder: "5551234567", validate: v => v.replace(/\D/g, "").length >= 10 },
   { key: "contact.email", prompt: "Email (if you prefer email)", type: "text", placeholder: "you@example.com", validate: v => v.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()), required: false },
-  { key: "zip", prompt: "Your ZIP code", type: "text", placeholder: "10001", validate: v => /^\d{5}(-\d{4})?$/.test(v.trim()) },
+
+  { type: "section", id: "review" },
 
   { key: "done", prompt: "All set. Review summary, then tap ‘Send to Email’.", type: "end" }
 ];
 
-function totalRealSteps() { return steps.filter(s => s.type !== "info" && (!s.when || s.when())).length; }
+// --- Progress helpers (ignore section/info steps) ---
+function visibleSteps() {
+  return steps.filter(s => s.type !== "info" && s.type !== "section" && (!s.when || s.when()));
+}
+function totalRealSteps() { return visibleSteps().length; }
 function currentIndexAmongShown(k) {
-  let idx = 0;
-  for (const s of steps) {
-    if (s.type === "info") continue;
-    if (s.when && !s.when()) continue;
-    if (s.key === k) return idx + 1;
-    idx++;
-  }
-  return 1;
+  const list = visibleSteps();
+  const idx = list.findIndex(s => s.key === k);
+  return idx >= 0 ? idx + 1 : 1;
 }
 function updateProgress(forKey) {
   const total = totalRealSteps();
   const cur = currentIndexAmongShown(forKey);
   progressLabel.textContent = `Step ${Math.min(cur, total)} of ${total}`;
-  progressBar.style.width = `${Math.round((cur - 1) / total * 100)}%`;
+  progressBar.style.width = `${Math.round((cur - 1) / Math.max(total,1) * 100)}%`;
+}
+
+// --- Stage bar ---
+function renderStagebar() {
+  if (!stagebarEl) return;
+  stagebarEl.innerHTML = "";
+  sections.forEach((s, i) => {
+    const pill = document.createElement("div");
+    pill.className = "stage-pill" + (i === currentSectionIndex ? " active" : "");
+    pill.textContent = `${i + 1}. ${s.label}`;
+    stagebarEl.appendChild(pill);
+    if (i < sections.length - 1) {
+      const sep = document.createElement("div");
+      sep.className = "stage-sep";
+      stagebarEl.appendChild(sep);
+    }
+  });
 }
 
 // ---------- UI builders ----------
@@ -119,7 +163,7 @@ function addQAItem(s) {
   const mirrored = dynamicField.firstElementChild ? dynamicField.firstElementChild.cloneNode(true) : null;
   if (mirrored) { mirrored.disabled = false; live.appendChild(mirrored); }
 
-  updateProgress(s.key);
+  if (s.key) updateProgress(s.key);
   return { ans };
 }
 
@@ -179,16 +223,37 @@ function setAnswer(s, v) {
   refreshSummary();
 }
 
+// NEW: stepper that pauses at section markers and shows Continue button
 function nextStep() {
   while (++step < steps.length) {
     const s = steps[step];
+
+    // Section marker: render stage, show Continue button, pause
+    if (s.type === "section") {
+      const idx = sections.findIndex(x => x.id === s.id);
+      currentSectionIndex = idx >= 0 ? idx : currentSectionIndex;
+      renderStagebar();
+      dynamicField.innerHTML = "";
+      if (nextSectionBtn) nextSectionBtn.style.display = "inline-flex";
+      return;
+    }
+
     if (s.when && !s.when()) continue;
+
     const ctx = addQAItem(s); s._ansNode = ctx.ans; // may be null for info
     if (s.type === "info") continue;               // auto-skip greeting
-    return;
+    return;                                        // stop on first interactive step
   }
   renderField({ type: "end" });
   updateProgress("done");
+}
+
+// Continue button moves from section header to first question in section
+if (nextSectionBtn) {
+  nextSectionBtn.addEventListener("click", () => {
+    nextSectionBtn.style.display = "none";
+    nextStep();
+  });
 }
 
 function previewLocal(fileList) {
@@ -226,7 +291,7 @@ function refreshSummary() {
   summaryEl.innerHTML = "<pre><code>" + lines.join("\n") + "</code></pre>";
 }
 
-// === CHANGED: simplified uploads — POST files to /api/upload-url with FormData ===
+// === Upload: POST files to /api/upload-url with FormData (your current API) ===
 async function uploadToBlob(files) {
   const urls = [];
   for (const f of files) {
@@ -234,7 +299,7 @@ async function uploadToBlob(files) {
     fd.append('file', f);
     const r = await fetch('/api/upload-url', { method: 'POST', body: fd });
     if (!r.ok) throw new Error('upload failed');
-    const { url } = await r.json();
+    const { url } = await r.json(); // expects server to return { url }
     urls.push(url); // public Blob URL
   }
   return urls;
@@ -266,7 +331,7 @@ async function decodeVin(vin) {
   return info;
 }
 
-// Events
+// --- Events ---
 resetBtn.addEventListener("click", startOver);
 function startOver() {
   step = -1; openDetails = null;
@@ -277,7 +342,8 @@ function startOver() {
     truckPhotoUrls: [], appScreenUrls: [], softwareScreenUrls: []
   };
   qaLog.innerHTML = ""; dynamicField.innerHTML = ""; summaryEl.innerHTML = ""; progressBar.style.width = "0%";
-  nextStep(); // greeting + VIN
+  currentSectionIndex = 0; renderStagebar();
+  nextStep(); // greeting + VIN section
 }
 
 form.addEventListener("submit", async (e) => {
@@ -324,8 +390,10 @@ exportBtn.addEventListener("click", () => {
 emailBtn.addEventListener("click", () => { sendEmail().catch(err => alert(err.message || "Upload failed")); });
 
 // Init
-nextStep(); // show greeting then VIN immediately
+renderStagebar();
+nextStep(); // show first section header; user taps Continue to start
 refreshSummary();
+
 
 
 
