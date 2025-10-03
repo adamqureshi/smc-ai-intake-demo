@@ -17,13 +17,22 @@
 
   <main class="container">
     <section class="layout">
+      <!-- LEFT: chat/intake -->
       <div class="card chat">
         <div class="progress">
           <div id="progressLabel" class="progress-label">Step 1 of 12</div>
           <div class="progress-rail"><div id="progressBar" class="progress-bar"></div></div>
         </div>
 
+        <!-- NEW: stage bar (section pills) -->
+        <nav id="stagebar" class="stagebar" aria-label="Intake stages"></nav>
+
         <div id="qaLog" class="qa-log" aria-live="polite"></div>
+
+        <!-- NEW: Continue button shown at each section break -->
+        <button id="nextSectionBtn" class="btn" style="display:none; margin:12px 0 0;">
+          Continue
+        </button>
 
         <form id="chatForm" class="input-row" autocomplete="off">
           <div id="dynamicField" class="field"></div>
@@ -31,6 +40,7 @@
         </form>
       </div>
 
+      <!-- RIGHT: summary -->
       <aside class="card summary">
         <h2>Intake Summary</h2>
         <div id="summary"></div>
